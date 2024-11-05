@@ -35,8 +35,8 @@ func getVehicleData(vehicle *element.Vehicle) []string {
 	}
 	joinedPath := strings.Join(pathStr, ",")
 	pathlength := vehicle.PathLength()
-	return []string{
 
+	return []string{
 		strconv.FormatInt(index, 10),         // 车辆 ID
 		strconv.Itoa(acceleration),           // 车辆加速度
 		fmt.Sprintf("%.4f", slowingProb),     // 减速概率
@@ -59,8 +59,11 @@ func InitVehicleDataCSV(filename string) {
 }
 
 func WriteToVehicleDataCSV(filename string) {
+	vehicleDataMutex.Lock()
+	defer vehicleDataMutex.Unlock()
 	if len(vehicleDataCache) == 0 {
 		return
 	}
 	appendToCSV(filename, vehicleDataCache)
+	vehicleDataCache = make([][]string, 0)
 }

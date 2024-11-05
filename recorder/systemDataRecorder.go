@@ -3,12 +3,25 @@ package recorder
 import (
 	"fmt"
 	"strconv"
+	"sync"
 )
 
-func FormatSystemState(simTime int, numVehicleGenerated, numVehiclesActive, numVehiclesWaiting, numVehicleCompleted int64, averageSpeed, vehicleDensity float64) []string {
+var (
+	systemDataCache [][]string = make([][]string, 0)
+	systemDataMutex sync.Mutex = sync.Mutex{}
+)
+
+func RecordSystemData(simTime int, numVehicleGenerated, numVehiclesActive, numVehiclesWaiting, numVehicleCompleted int64, averageSpeed, vehicleDensity float64) {
+	systemDataMutex.Lock()
+	defer systemDataMutex.Unlock()
+	systemDataCache = append(systemDataCache, formatSystemState(simTime, numVehicleGenerated, numVehiclesActive, numVehiclesWaiting, numVehicleCompleted, averageSpeed, vehicleDensity))
+}
+
+func formatSystemState(simTime int, numVehicleGenerated, numVehiclesActive, numVehiclesWaiting, numVehicleCompleted int64, averageSpeed, vehicleDensity float64) []string {
 	timeOfDay := simTime % 57600
 	day := simTime/57600 + 1
 	return []string{
+		strconv.Itoa(simTime),
 		strconv.Itoa(day),                          // 当前天数
 		strconv.Itoa(timeOfDay),                    // 时间步
 		strconv.FormatInt(numVehicleGenerated, 10), // 道路车辆数量
@@ -22,14 +35,17 @@ func FormatSystemState(simTime int, numVehicleGenerated, numVehiclesActive, numV
 
 func InitSystemDataCSV(filename string) {
 	header := []string{
-		"Day", "TimeOfDay", "NumVehicleGenerated", "NumVehiclesActive", "NumVehiclesWaiting", "NumVehicleCompleted", "AverageSpeed", "VehicleDensity",
+		"SimTime", "Day", "TimeOfDay", "NumVehicleGenerated", "NumVehiclesActive", "NumVehiclesWaiting", "NumVehicleCompleted", "AverageSpeed", "VehicleDensity",
 	}
 	initializeCSV(filename, header)
 }
 
-func WriteToSystemDataCSV(filename string, data [][]string) {
-	if len(data) == 0 {
+func WriteToSystemDataCSV(filename string) {
+	systemDataMutex.Lock()
+	defer systemDataMutex.Unlock()
+	if len(systemDataCache) == 0 {
 		return
 	}
-	appendToCSV(filename, data)
+	appendToCSV(filename, systemDataCache)
+	systemDataCache = make([][]string, 0)
 }

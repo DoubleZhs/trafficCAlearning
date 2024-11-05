@@ -4,16 +4,17 @@ import (
 	"graphCA/element"
 	"graphCA/recorder"
 	"graphCA/utils"
+	"sync"
 
 	"golang.org/x/exp/rand"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/simple"
 )
 
-func VehicleProcess(simTime int, simpleGraph, simulationGraph *simple.DirectedGraph, allowedDestination []graph.Node) {
+func VehicleProcess(numWorkers, simTime int, simpleGraph, simulationGraph *simple.DirectedGraph, allowedDestination []graph.Node) {
 	checkCompletedVehicle(simTime, simpleGraph, simulationGraph, allowedDestination)
-	updateVehicleActiveStatus()
-	updateVehiclePosition(simTime)
+	updateVehicleActiveStatus(numWorkers)
+	updateVehiclePosition(numWorkers, simTime)
 }
 
 func checkCompletedVehicle(simTime int, simpleGraph, simulationGraph *simple.DirectedGraph, allowedDestination []graph.Node) {
@@ -56,15 +57,49 @@ func checkCompletedVehicle(simTime int, simpleGraph, simulationGraph *simple.Dir
 	completedVehicles = make(map[*element.Vehicle]struct{})
 }
 
-func updateVehicleActiveStatus() {
-	recordActivatedVehicle := make(map[*element.Vehicle]struct{})
-
-	for vehicle := range waitingVehicles {
-		ok := vehicle.UpdateActiveState()
-		if ok {
-			recordActivatedVehicle[vehicle] = struct{}{}
-		}
+func updateVehicleActiveStatus(numWorkers int) {
+	if len(waitingVehicles) == 0 {
+		return
 	}
+
+	vehicles := make([]*element.Vehicle, 0, len(waitingVehicles))
+	for vehicle := range waitingVehicles {
+		vehicles = append(vehicles, vehicle)
+	}
+
+	if len(vehicles) < numWorkers {
+		numWorkers = len(vehicles)
+	}
+
+	vehiclesPerThread := len(vehicles) / numWorkers
+	extraVehicles := len(vehicles) % numWorkers
+
+	var wg sync.WaitGroup
+	recordActivatedVehicle := make(chan *element.Vehicle, len(vehicles))
+
+	start := 0
+	for i := 0; i < numWorkers; i++ {
+		end := start + vehiclesPerThread
+		if i < extraVehicles {
+			end++
+		}
+		wg.Add(1)
+		go func(start, end int) {
+			defer wg.Done()
+			for j := start; j < end; j++ {
+				vehicle := vehicles[j]
+				ok := vehicle.UpdateActiveState()
+				if ok {
+					recordActivatedVehicle <- vehicle
+				}
+			}
+		}(start, end)
+
+		start = end
+	}
+
+	wg.Wait()
+	close(recordActivatedVehicle)
 
 	for vehicle := range recordActivatedVehicle {
 		delete(waitingVehicles, vehicle)
@@ -74,28 +109,64 @@ func updateVehicleActiveStatus() {
 	}
 }
 
-func updateVehiclePosition(simTime int) {
+func updateVehiclePosition(numWorkers, simTime int) {
 	if len(activeVehicles) == 0 {
 		return
 	}
 
+	vehicles := make([]*element.Vehicle, 0, len(activeVehicles))
 	for vehicle := range activeVehicles {
-		if vehicle.State() == 3 {
-			vehicle.SystemIn()
-		}
-		if vehicle.State() == 4 {
-			completed := vehicle.Move(simTime)
-			if completed {
-				activeVehiclesMutex.Lock()
-				delete(activeVehicles, vehicle)
-				numVehiclesActive--
-				activeVehiclesMutex.Unlock()
-
-				completedVehiclesMutex.Lock()
-				completedVehicles[vehicle] = struct{}{}
-				numVehicleCompleted++
-				completedVehiclesMutex.Unlock()
-			}
-		}
+		vehicles = append(vehicles, vehicle)
 	}
+
+	// 打乱vehicle顺序
+	for i := len(vehicles) - 1; i > 0; i-- {
+		j := rand.Intn(i + 1)
+		vehicles[i], vehicles[j] = vehicles[j], vehicles[i]
+	}
+
+	if len(vehicles) < numWorkers {
+		numWorkers = len(vehicles)
+	}
+
+	vehiclesPerThread := len(vehicles) / numWorkers
+	extraVehicles := len(vehicles) % numWorkers
+
+	var wg sync.WaitGroup
+
+	start := 0
+	for i := 0; i < numWorkers; i++ {
+		end := start + vehiclesPerThread
+		if i < extraVehicles {
+			end++
+		}
+		wg.Add(1)
+		go func(start, end int) {
+			defer wg.Done()
+			for j := start; j < end; j++ {
+				vehicle := vehicles[j]
+				if vehicle.State() == 3 {
+					vehicle.SystemIn()
+				}
+				if vehicle.State() == 4 {
+					completed := vehicle.Move(simTime)
+					if completed {
+						activeVehiclesMutex.Lock()
+						delete(activeVehicles, vehicle)
+						numVehiclesActive--
+						activeVehiclesMutex.Unlock()
+
+						completedVehiclesMutex.Lock()
+						completedVehicles[vehicle] = struct{}{}
+						numVehicleCompleted++
+						completedVehiclesMutex.Unlock()
+					}
+				}
+			}
+		}(start, end)
+
+		start = end
+	}
+
+	wg.Wait()
 }

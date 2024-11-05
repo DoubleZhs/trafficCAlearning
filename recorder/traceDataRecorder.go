@@ -43,10 +43,13 @@ func InitTraceDataCSV(filename string) {
 }
 
 func WriteToTraceDataCSV(filename string) {
+	traceDataMutex.Lock()
+	defer traceDataMutex.Unlock()
 	if len(traceDataCache) == 0 {
 		return
 	}
 	for _, records := range traceDataCache {
 		appendToCSV(filename, records)
 	}
+	traceDataCache = make([][][]string, 0)
 }

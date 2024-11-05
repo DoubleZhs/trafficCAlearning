@@ -30,3 +30,29 @@ func GetVehiclesNum() (int64, int64, int64, int64) {
 
 	return numVehicleGenerated, numVehiclesActive, numVehiclesWaiting, numVehicleCompleted
 }
+
+func GetVehiclesOnRoad() map[*element.Vehicle]struct{} {
+	activeVehiclesMutex.Lock()
+	defer activeVehiclesMutex.Unlock()
+
+	vehiclesOnRaod := make(map[*element.Vehicle]struct{})
+	for vehicle := range activeVehicles {
+		if vehicle.State() == 4 {
+			vehiclesOnRaod[vehicle] = struct{}{}
+		}
+	}
+
+	return vehiclesOnRaod
+}
+
+func GetAverageSpeed_Density(vehiclesOnRaod map[*element.Vehicle]struct{}, numNodes int) (float64, float64) {
+	totalSpeed := 0.0
+	for vehicle := range vehiclesOnRaod {
+		totalSpeed += float64(vehicle.Velocity())
+	}
+	averageSpeed := totalSpeed / float64(len(vehiclesOnRaod))
+
+	density := float64(len(vehiclesOnRaod)) / float64(numNodes)
+
+	return averageSpeed, density
+}

@@ -20,8 +20,9 @@ func AdjustDemand(A, B float64) []float64 {
 	return adjustedDemand
 }
 
-func GetGenerateVehicleCount(timeOfDay int, dayDemandList []float64) int {
-	baseDemand := dayDemandList[timeOfDay]
+func GetGenerateVehicleCount(timeOfDay int, dayDemandList []float64, randomDis float64) int {
+	randomFactor := 1 + (rand.Float64()*2*randomDis - randomDis)
+	baseDemand := dayDemandList[timeOfDay] * randomFactor
 	baseN := math.Floor(baseDemand)
 
 	var randomN float64
@@ -51,7 +52,7 @@ func readDemandCSV() []float64 {
 		panic(err)
 	}
 
-	var demand []float64 = make([]float64, 57600)
+	var demand []float64 = make([]float64, 0)
 	for _, record := range records[1:] {
 		pro, err := strconv.ParseFloat(record[1], 64)
 		if err != nil {

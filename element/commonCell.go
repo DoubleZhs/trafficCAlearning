@@ -65,8 +65,8 @@ func (cell *CommonCell) ListBuffer() []*Vehicle {
 	return vehicles
 }
 
-func (cell *CommonCell) ChangeToTrafficLightCell(initPhase bool, interval [2]int, initCount int) *TrafficLightCell {
-	return NewTrafficLightCell(cell.id, cell.speedLimit, cell.capacity, initPhase, interval, initCount)
+func (cell *CommonCell) ChangeToTrafficLightCell(interval int, truePhaseInterval [2]int) *TrafficLightCell {
+	return NewTrafficLightCell(cell.id, cell.speedLimit, cell.capacity, interval, truePhaseInterval)
 }
 
 func (cell *CommonCell) Loadable(vehicle *Vehicle) bool {
