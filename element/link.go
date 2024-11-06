@@ -46,6 +46,10 @@ func (l *Link) Flat() []graph.Node {
 	return l.cells
 }
 
+func (l *Link) Length() int {
+	return l.numCells
+}
+
 func (l *Link) AddToGraph(g *simple.DirectedGraph) {
 	for i := 0; i < len(l.cells)-1; i++ {
 		g.SetEdge(simple.Edge{F: l.cells[i], T: l.cells[i+1]})

@@ -6,6 +6,7 @@ import (
 	"graphCA/log"
 	"graphCA/recorder"
 	"graphCA/simulator"
+	"graphCA/utils"
 	"runtime"
 	"sync"
 	"time"
@@ -24,17 +25,18 @@ const (
 	intervalWriteOtherData int = 4800
 
 	// 需求分布仿射变换参数
-	Multiplier float64 = 3e5
-	FixedNum   float64 = 2
+	Multiplier float64 = 80e4
+	FixedNum   float64 = 3
 	// 时间步需求扰动范围[1-RandomDisRange, 1+RandomDisRange]
-	RandomDisRange float64 = 0.2
+	RandomDisRange float64 = 0.15
 	// 固定车辆数
-	numClosedVehicle int = 100
+	numClosedVehicle int = 500
 
 	simDay                        int     = 2
-	initTrafficLightPhaseInterval int     = 20
+	initTrafficLightPhaseInterval int     = 40
 	trafficLightChangeDay         int     = 2
 	traffcLightMul                float64 = 5.0
+	inDegreeThreshold             int     = 3
 )
 
 // 并发数
@@ -102,7 +104,7 @@ func main() {
 	// 筛选入度较大的节点, 仅在这些节点处设置红绿灯
 	filteredKeyNodes := make(map[int64]graph.Node)
 	for id, node := range keyNodes {
-		if simulationG.To(node.ID()).Len() >= 4 {
+		if simulationG.To(node.ID()).Len() >= inDegreeThreshold {
 			filteredKeyNodes[id] = node
 		}
 	}
@@ -159,6 +161,10 @@ func main() {
 			simulationG.SetEdge(simulationG.NewEdge(lightNode, toNode))
 		}
 	}
+
+	// 检查连通性
+	simpleConnect, simulationConnect := utils.IsStronglyConnected(simpleG), utils.IsStronglyConnected(simulationG)
+	log.WriteLog(fmt.Sprintf("SimpleGraph Connected: %v, SimulationGraph Connected: %v", simpleConnect, simulationConnect))
 
 	// 初始化系统
 	var demand []float64

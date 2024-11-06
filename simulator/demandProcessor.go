@@ -17,6 +17,7 @@ func AdjustDemand(A, B float64) []float64 {
 	for i, d := range rawDemand {
 		adjustedDemand[i] = d*A + B
 	}
+
 	return adjustedDemand
 }
 

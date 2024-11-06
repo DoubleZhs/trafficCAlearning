@@ -38,9 +38,15 @@ func InitFixedVehicle(n int, simpleGraph, simulationGraph *simple.DirectedGraph,
 
 			// OD生成
 			oCell := allowedOrigin[rand.Intn(len(allowedOrigin)-1)]
+
 			var dCell graph.Node
 			for {
-				dCell = allowedDestination[rand.Intn(len(allowedDestination)-1)]
+				lim := TripDistanceLim()
+				dCellsInRange := utils.AccessibleNodesWithinLim(simpleGraph, oCell, lim)
+				if len(dCellsInRange) == 0 {
+					continue
+				}
+				dCell = dCellsInRange[rand.Intn(len(dCellsInRange)-1)]
 				if oCell.ID() != dCell.ID() {
 					break
 				}
@@ -48,11 +54,12 @@ func InitFixedVehicle(n int, simpleGraph, simulationGraph *simple.DirectedGraph,
 			vehicle.SetOD(simulationGraph, oCell, dCell)
 
 			// 路径
-			shortestPath, _, err := utils.ShortestPath(simpleGraph, oCell, dCell)
+			path, _, err := utils.ShortestPath(simpleGraph, oCell, dCell)
+			// path, _, err := utils.RandomPath(simpleGraph, oCell, dCell)
 			if err != nil {
 				panic(err)
 			}
-			vehicle.SetPath(shortestPath)
+			vehicle.SetPath(path)
 
 			// 进入缓冲区
 			vehicle.BufferIn(0)
@@ -75,21 +82,30 @@ func GenerateScheduleVehicle(simTime, n int, simpleGraph, simulationGraph *simpl
 
 			vehicle := element.NewVehicle(getNextVehicleID(), randomVelocity(), randomAcceleration(), 1.0, randomSlowingProbability(), false)
 
+			// OD生成
 			oCell := allowedOrigin[rand.Intn(len(allowedOrigin)-1)]
+
 			var dCell graph.Node
 			for {
-				dCell = allowedDestination[rand.Intn(len(allowedDestination)-1)]
+				lim := TripDistanceLim()
+				dCellsInRange := utils.AccessibleNodesWithinLim(simpleGraph, oCell, lim)
+				if len(dCellsInRange) == 0 {
+					continue
+				}
+				dCell = dCellsInRange[rand.Intn(len(dCellsInRange)-1)]
 				if oCell.ID() != dCell.ID() {
 					break
 				}
 			}
 			vehicle.SetOD(simulationGraph, oCell, dCell)
 
-			shortestPath, _, err := utils.ShortestPath(simpleGraph, oCell, dCell)
+			// 路径
+			path, _, err := utils.ShortestPath(simpleGraph, oCell, dCell)
+			// path, _, err := utils.RandomPath(simpleGraph, oCell, dCell)
 			if err != nil {
 				panic(err)
 			}
-			vehicle.SetPath(shortestPath)
+			vehicle.SetPath(path)
 
 			vehicle.BufferIn(simTime)
 

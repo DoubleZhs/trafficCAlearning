@@ -53,7 +53,7 @@ func getVehicleData(vehicle *element.Vehicle) []string {
 
 func InitVehicleDataCSV(filename string) {
 	header := []string{
-		"ID", "Acceleration", "SlowingProb", "InTime", "OutTime", "Tag", "Flag", "Origin", "Destination", "Path", "PathLength",
+		"ID", "Acceleration", "SlowingPro", "InTime", "OutTime", "Tag", "Flag", "Origin", "Destination", "Path", "PathLength",
 	}
 	initializeCSV(filename, header)
 }

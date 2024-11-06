@@ -12,12 +12,12 @@ import (
 )
 
 func VehicleProcess(numWorkers, simTime int, simpleGraph, simulationGraph *simple.DirectedGraph, allowedDestination []graph.Node) {
-	checkCompletedVehicle(simTime, simpleGraph, simulationGraph, allowedDestination)
+	checkCompletedVehicle(simTime, simpleGraph, simulationGraph)
 	updateVehicleActiveStatus(numWorkers)
 	updateVehiclePosition(numWorkers, simTime)
 }
 
-func checkCompletedVehicle(simTime int, simpleGraph, simulationGraph *simple.DirectedGraph, allowedDestination []graph.Node) {
+func checkCompletedVehicle(simTime int, simpleGraph, simulationGraph *simple.DirectedGraph) {
 	if len(completedVehicles) == 0 {
 		return
 	}
@@ -30,27 +30,34 @@ func checkCompletedVehicle(simTime int, simpleGraph, simulationGraph *simple.Dir
 		if vehicle.Flag() {
 			id, velocity, acceleration, slowingProb := vehicle.Index(), vehicle.Velocity(), vehicle.Acceleration(), vehicle.SlowingProb()
 			newOrigin := vehicle.Destination()
+
 			var newDestination graph.Node
 			for {
-				newDestination = allowedDestination[rand.Intn(len(allowedDestination)-1)]
+				lim := TripDistanceLim()
+				newDestinationInRange := utils.AccessibleNodesWithinLim(simpleGraph, newOrigin, lim)
+				if len(newDestinationInRange) == 0 {
+					continue
+				}
+				newDestination = newDestinationInRange[rand.Intn(len(newDestinationInRange)-1)]
 				if newOrigin.ID() != newDestination.ID() {
 					break
 				}
 			}
 			newVehicle := element.NewVehicle(id, velocity, acceleration, 1.0, slowingProb, true)
 			newVehicle.SetOD(simulationGraph, newOrigin, newDestination)
-			shortestPath, _, err := utils.ShortestPath(simpleGraph, newOrigin, newDestination)
+			path, _, err := utils.ShortestPath(simpleGraph, newOrigin, newDestination)
+			// path, _, err := utils.RandomPath(simpleGraph, newOrigin, newDestination)
 			if err != nil {
 				panic(err)
 			}
 
-			newVehicle.SetPath(shortestPath)
+			newVehicle.SetPath(path)
 
 			newVehicle.BufferIn(simTime)
-			//waitingVehiclesMutex.Lock()
+			waitingVehiclesMutex.Lock()
 			waitingVehicles[newVehicle] = struct{}{}
 			numVehiclesWaiting++
-			//waitingVehiclesMutex.Unlock()
+			waitingVehiclesMutex.Unlock()
 		}
 	}
 
