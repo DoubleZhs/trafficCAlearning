@@ -40,13 +40,19 @@ func InitFixedVehicle(n int, simpleGraph, simulationGraph *simple.DirectedGraph,
 			oCell := allowedOrigin[rand.Intn(len(allowedOrigin)-1)]
 
 			var dCell graph.Node
+			// for {
+			// 	lim := TripDistanceLim()
+			// 	dCellsInRange := utils.AccessibleNodesWithinLim(simpleGraph, oCell, lim)
+			// 	if len(dCellsInRange) == 0 {
+			// 		continue
+			// 	}
+			// 	dCell = dCellsInRange[rand.Intn(len(dCellsInRange)-1)]
+			// 	if oCell.ID() != dCell.ID() {
+			// 		break
+			// 	}
+			// }
 			for {
-				lim := TripDistanceLim()
-				dCellsInRange := utils.AccessibleNodesWithinLim(simpleGraph, oCell, lim)
-				if len(dCellsInRange) == 0 {
-					continue
-				}
-				dCell = dCellsInRange[rand.Intn(len(dCellsInRange)-1)]
+				dCell = allowedDestination[rand.Intn(len(allowedDestination)-1)]
 				if oCell.ID() != dCell.ID() {
 					break
 				}
@@ -54,12 +60,14 @@ func InitFixedVehicle(n int, simpleGraph, simulationGraph *simple.DirectedGraph,
 			vehicle.SetOD(simulationGraph, oCell, dCell)
 
 			// 路径
-			path, _, err := utils.ShortestPath(simpleGraph, oCell, dCell)
+			// path, _, err := utils.ShortestPath(simpleGraph, oCell, dCell)
 			// path, _, err := utils.RandomPath(simpleGraph, oCell, dCell)
+			paths, err := utils.KShortestPaths(simpleGraph, oCell, dCell, kPathsNum)
 			if err != nil {
 				panic(err)
 			}
-			vehicle.SetPath(path)
+			randomDice := rand.Intn(len(paths))
+			vehicle.SetPath(paths[randomDice])
 
 			// 进入缓冲区
 			vehicle.BufferIn(0)
@@ -74,6 +82,9 @@ func InitFixedVehicle(n int, simpleGraph, simulationGraph *simple.DirectedGraph,
 }
 
 func GenerateScheduleVehicle(simTime, n int, simpleGraph, simulationGraph *simple.DirectedGraph, allowedOrigin, allowedDestination []graph.Node) {
+	if numVehiclesWaiting > maxNumVehiclesWaiting {
+		return
+	}
 	var wg sync.WaitGroup
 	wg.Add(n)
 	for i := 0; i < n; i++ {
@@ -86,13 +97,23 @@ func GenerateScheduleVehicle(simTime, n int, simpleGraph, simulationGraph *simpl
 			oCell := allowedOrigin[rand.Intn(len(allowedOrigin)-1)]
 
 			var dCell graph.Node
+			// for {
+			// 	lim := TripDistanceLim()
+			// 	dCellsInRange := utils.AccessibleNodesWithinLim(simpleGraph, oCell, lim)
+			// 	if len(dCellsInRange) == 0 {
+			// 		continue
+			// 	}
+			// 	if len(dCellsInRange) == 1 {
+			// 		dCell = dCellsInRange[0]
+			// 	} else {
+			// 		dCell = dCellsInRange[rand.Intn(len(dCellsInRange)-1)]
+			// 	}
+			// 	if oCell.ID() != dCell.ID() {
+			// 		break
+			// 	}
+			// }
 			for {
-				lim := TripDistanceLim()
-				dCellsInRange := utils.AccessibleNodesWithinLim(simpleGraph, oCell, lim)
-				if len(dCellsInRange) == 0 {
-					continue
-				}
-				dCell = dCellsInRange[rand.Intn(len(dCellsInRange)-1)]
+				dCell = allowedDestination[rand.Intn(len(allowedDestination)-1)]
 				if oCell.ID() != dCell.ID() {
 					break
 				}
@@ -100,12 +121,14 @@ func GenerateScheduleVehicle(simTime, n int, simpleGraph, simulationGraph *simpl
 			vehicle.SetOD(simulationGraph, oCell, dCell)
 
 			// 路径
-			path, _, err := utils.ShortestPath(simpleGraph, oCell, dCell)
+			// path, _, err := utils.ShortestPath(simpleGraph, oCell, dCell)
 			// path, _, err := utils.RandomPath(simpleGraph, oCell, dCell)
+			paths, err := utils.KShortestPaths(simpleGraph, oCell, dCell, kPathsNum)
 			if err != nil {
 				panic(err)
 			}
-			vehicle.SetPath(path)
+			randomDice := rand.Intn(len(paths))
+			vehicle.SetPath(paths[randomDice])
 
 			vehicle.BufferIn(simTime)
 

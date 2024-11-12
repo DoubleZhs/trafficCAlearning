@@ -40,20 +40,20 @@ func getVehicleData(vehicle *element.Vehicle) []string {
 		strconv.FormatInt(index, 10),         // 车辆 ID
 		strconv.Itoa(acceleration),           // 车辆加速度
 		fmt.Sprintf("%.4f", slowingProb),     // 减速概率
+		strconv.FormatInt(originId, 10),      // 起点 ID
+		strconv.FormatInt(destinationId, 10), // 终点 ID
 		strconv.Itoa(inTime),                 // 进入系统时间
 		strconv.Itoa(outTime),                // 到达时间
 		fmt.Sprintf("%.4f", tag),             // 标签
 		strconv.FormatBool(flag),             // 是否为封闭系统车辆
-		strconv.FormatInt(originId, 10),      // 起点 ID
-		strconv.FormatInt(destinationId, 10), // 终点 ID
-		joinedPath,                           // 添加路径信息
+		joinedPath,                           // 路径
 		strconv.Itoa(pathlength),             // 路径长度（元胞数）
 	}
 }
 
 func InitVehicleDataCSV(filename string) {
 	header := []string{
-		"ID", "Acceleration", "SlowingPro", "InTime", "OutTime", "Tag", "Flag", "Origin", "Destination", "Path", "PathLength",
+		"Vehicle ID", "Acceleration", "SlowingPro", "Origin", "Destination", "In Time", "Arrival Time", "Tag", "ClosedVehicle", "Path", "PathLength",
 	}
 	initializeCSV(filename, header)
 }

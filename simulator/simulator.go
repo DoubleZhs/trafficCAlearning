@@ -20,6 +20,11 @@ var (
 	numVehicleCompleted int64
 )
 
+const (
+	kPathsNum             int   = 3
+	maxNumVehiclesWaiting int64 = 500
+)
+
 func GetVehiclesNum() (int64, int64, int64, int64) {
 	activeVehiclesMutex.Lock()
 	defer activeVehiclesMutex.Unlock()

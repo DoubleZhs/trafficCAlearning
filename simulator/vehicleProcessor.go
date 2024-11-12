@@ -12,12 +12,12 @@ import (
 )
 
 func VehicleProcess(numWorkers, simTime int, simpleGraph, simulationGraph *simple.DirectedGraph, allowedDestination []graph.Node) {
-	checkCompletedVehicle(simTime, simpleGraph, simulationGraph)
+	checkCompletedVehicle(simTime, simpleGraph, simulationGraph, allowedDestination)
 	updateVehicleActiveStatus(numWorkers)
 	updateVehiclePosition(numWorkers, simTime)
 }
 
-func checkCompletedVehicle(simTime int, simpleGraph, simulationGraph *simple.DirectedGraph) {
+func checkCompletedVehicle(simTime int, simpleGraph, simulationGraph *simple.DirectedGraph, allowedDestination []graph.Node) {
 	if len(completedVehicles) == 0 {
 		return
 	}
@@ -32,26 +32,34 @@ func checkCompletedVehicle(simTime int, simpleGraph, simulationGraph *simple.Dir
 			newOrigin := vehicle.Destination()
 
 			var newDestination graph.Node
+			// for {
+			// 	lim := TripDistanceLim()
+			// 	newDestinationInRange := utils.AccessibleNodesWithinLim(simpleGraph, newOrigin, lim)
+			// 	if len(newDestinationInRange) == 0 {
+			// 		continue
+			// 	}
+			// 	newDestination = newDestinationInRange[rand.Intn(len(newDestinationInRange)-1)]
+			// 	if newOrigin.ID() != newDestination.ID() {
+			// 		break
+			// 	}
+			// }
 			for {
-				lim := TripDistanceLim()
-				newDestinationInRange := utils.AccessibleNodesWithinLim(simpleGraph, newOrigin, lim)
-				if len(newDestinationInRange) == 0 {
-					continue
-				}
-				newDestination = newDestinationInRange[rand.Intn(len(newDestinationInRange)-1)]
+				newDestination = allowedDestination[rand.Intn(len(allowedDestination)-1)]
 				if newOrigin.ID() != newDestination.ID() {
 					break
 				}
 			}
 			newVehicle := element.NewVehicle(id, velocity, acceleration, 1.0, slowingProb, true)
 			newVehicle.SetOD(simulationGraph, newOrigin, newDestination)
-			path, _, err := utils.ShortestPath(simpleGraph, newOrigin, newDestination)
+
+			// path, _, err := utils.ShortestPath(simpleGraph, newOrigin, newDestination)
 			// path, _, err := utils.RandomPath(simpleGraph, newOrigin, newDestination)
+			paths, err := utils.KShortestPaths(simpleGraph, newOrigin, newDestination, kPathsNum)
 			if err != nil {
 				panic(err)
 			}
-
-			newVehicle.SetPath(path)
+			randomDice := rand.Intn(len(paths))
+			newVehicle.SetPath(paths[randomDice])
 
 			newVehicle.BufferIn(simTime)
 			waitingVehiclesMutex.Lock()

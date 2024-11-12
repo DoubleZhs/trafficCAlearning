@@ -9,6 +9,10 @@ import (
 	"gonum.org/v1/gonum/graph/traverse"
 )
 
+var (
+	accessCacheInstance = newAccessCache()
+)
+
 func Accessible(g *simple.DirectedGraph, from, to graph.Node) bool {
 	dfs := traverse.DepthFirst{}
 	found := false
@@ -25,6 +29,11 @@ func Accessible(g *simple.DirectedGraph, from, to graph.Node) bool {
 }
 
 func AccessibleNodesWithinLim(g graph.Graph, from graph.Node, lim int) []graph.Node {
+	// Check cache first
+	if cachedNodes, ok := accessCacheInstance.Get(from, lim); ok {
+		return cachedNodes
+	}
+
 	visited := make(map[int64]bool)
 	var visitedMu sync.Mutex
 	result := []graph.Node{}
@@ -69,6 +78,10 @@ func AccessibleNodesWithinLim(g graph.Graph, from graph.Node, lim int) []graph.N
 	go dfs(from, 0)
 
 	wg.Wait()
+
+	// Store result in cache
+	accessCacheInstance.Set(from, lim, result)
+
 	return result
 }
 

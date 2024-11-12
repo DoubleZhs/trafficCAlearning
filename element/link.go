@@ -27,7 +27,11 @@ func NewLink(id int64, numCells, speed int, capacity float64) *Link {
 	}
 	cells := make([]graph.Node, numCells)
 	for i := 0; i < numCells; i++ {
-		cells[i] = NewCommonCell(getNextCellID(), speed, float64(capacity))
+		if i < numCells-1 {
+			cells[i] = NewCommonCell(getNextCellID(), speed, float64(capacity))
+		} else {
+			cells[i] = NewTrafficLightCell(getNextCellID(), speed, float64(capacity), 0, [2]int{0, 1})
+		}
 	}
 	return &Link{
 		id:         id,

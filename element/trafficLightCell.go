@@ -16,12 +16,19 @@ func NewTrafficLightCell(id int64, speed int, capacity float64, interval int, tr
 		CommonCell:        *NewCommonCell(id, speed, capacity),
 		truePhaseInterval: truePhaseInterval,
 		interval:          interval,
+		phase:             true,
+		count:             0,
 	}
 }
 
-// func (light *TrafficLightCell) changePhase() {
-// 	light.phase = !light.phase
-// }
+func (light *TrafficLightCell) Interval() (int, [2]int) {
+	return light.interval, light.truePhaseInterval
+}
+
+func (light *TrafficLightCell) SetInterval(interval int, truePhaseInterval [2]int) {
+	light.interval = interval
+	light.truePhaseInterval = truePhaseInterval
+}
 
 func (light *TrafficLightCell) Cycle() {
 	light.count++

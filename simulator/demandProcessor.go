@@ -34,11 +34,28 @@ func GetGenerateVehicleCount(timeOfDay int, dayDemandList []float64, randomDis f
 		randomN = 0
 	}
 
+	// // test
+	// switch {
+	// case timeOfDay <= 57600/24*2:
+	// 	baseN = 1
+	// case timeOfDay <= 57600/24*4:
+	// 	baseN = 2
+	// case timeOfDay <= 57600/24*6:
+	// 	baseN = 3
+	// case timeOfDay <= 57600/24*8:
+	// 	baseN = 4
+	// case timeOfDay <= 57600/24*10:
+	// 	baseN = 5
+	// default:
+	// 	baseN = 0
+	// }
+	// randomN = 0
+
 	return int(baseN + randomN)
 }
 
 func readDemandCSV() []float64 {
-	var filename string = "./resources/DemandTimeDistribution.csv"
+	var filename string = "./resources/DemandTimeDistribution1.csv"
 	file, err := os.Open(filename)
 	if err != nil {
 		log.Fatalf("Failed to open file: %s", err)

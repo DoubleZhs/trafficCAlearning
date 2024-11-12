@@ -2,6 +2,7 @@ package utils
 
 import (
 	"errors"
+	"graphCA/element"
 
 	"golang.org/x/exp/rand"
 	"gonum.org/v1/gonum/graph"
@@ -9,13 +10,9 @@ import (
 	"gonum.org/v1/gonum/graph/simple"
 )
 
-var (
-	cache = newPathCache()
-)
-
 func ShortestPath(g *simple.DirectedGraph, origin, destination graph.Node) ([]graph.Node, float64, error) {
 	// 检查缓存中是否已经计算过路径
-	if cachedPath, ok := cache.Get(origin, destination); ok {
+	if cachedPath, ok := pCache.Get(origin, destination); ok {
 		return cachedPath, float64(len(cachedPath) - 1), nil
 	}
 
@@ -26,7 +23,7 @@ func ShortestPath(g *simple.DirectedGraph, origin, destination graph.Node) ([]gr
 	}
 
 	// 写入缓存
-	cache.Set(origin, destination, shortestPath)
+	pCache.Set(origin, destination, shortestPath, length)
 
 	return shortestPath, length, nil
 }
@@ -70,10 +67,50 @@ func RandomPath(g *simple.DirectedGraph, origin, destination graph.Node) ([]grap
 		return nil, -1, errors.New("no path found")
 	}
 
-	// Reverse the path to get the correct order
 	for i, j := 0, len(path)-1; i < j; i, j = i+1, j-1 {
 		path[i], path[j] = path[j], path[i]
 	}
 
 	return path, float64(len(path) - 1), nil
+}
+
+func KShortestPaths(g *simple.DirectedGraph, origin, destination graph.Node, k int) ([][]graph.Node, error) {
+	if k <= 0 {
+		return nil, errors.New("k must be greater than 0")
+	}
+
+	// 检查缓存中是否已经计算过路径
+	if cachedPaths, ok := kpCache.GetK(origin, destination); ok {
+		return cachedPaths, nil
+	}
+
+	// 使用YenKShortestPaths算法计算前K条最短路径
+	paths := path.YenKShortestPaths(g, k, 9999999999, origin, destination)
+
+	if len(paths) == 0 {
+		return nil, errors.New("no path found")
+	}
+
+	lengths := make([]float64, len(paths))
+	for i, p := range paths {
+		lengths[i] = calPathLength(p)
+	}
+
+	// 写入缓存
+	kpCache.SetK(origin, destination, paths, lengths)
+
+	return paths, nil
+}
+
+func calPathLength(path []graph.Node) float64 {
+	length := 0
+	for _, node := range path {
+		switch n := node.(type) {
+		case element.Cell:
+			length += 1
+		case *element.Link:
+			length += n.Length()
+		}
+	}
+	return float64(length)
 }

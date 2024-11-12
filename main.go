@@ -25,18 +25,20 @@ const (
 	intervalWriteOtherData int = 4800
 
 	// 需求分布仿射变换参数
-	Multiplier float64 = 80e4
-	FixedNum   float64 = 3
+	Multiplier float64 = 1.5e5
+	FixedNum   float64 = 0.25e5 / 57600
 	// 时间步需求扰动范围[1-RandomDisRange, 1+RandomDisRange]
-	RandomDisRange float64 = 0.15
+	RandomDisRange float64 = 0.25
 	// 固定车辆数
-	numClosedVehicle int = 500
+	numClosedVehicle int = 50
 
 	simDay                        int     = 2
-	initTrafficLightPhaseInterval int     = 40
+	initTrafficLightPhaseInterval int     = 20
 	trafficLightChangeDay         int     = 2
-	traffcLightMul                float64 = 5.0
-	inDegreeThreshold             int     = 3
+	traffcLightMul                float64 = 3.0
+	inDegreeThreshold             int     = 4
+
+	rawNodeIds int64 = 416
 )
 
 // 并发数
@@ -65,16 +67,28 @@ func main() {
 
 	// 仿真图
 	simpleG, simpleNodes := simulator.CreateAnaheimSimpleGraph()
-	simulationG, simulationNodes := simulator.CreateAnaheimSimulationGraph(simpleG, simpleNodes)
+	simulationG, simulationNodes, lightGroups := simulator.CreateAnaheimSimulationGraph(simpleG, simpleNodes, inDegreeThreshold, initTrafficLightPhaseInterval)
 	numNodes := len(simulationNodes)
 	log.WriteLog(fmt.Sprintf("Number of Nodes: %d", numNodes))
+	log.WriteLog(fmt.Sprintf("Number of TrafficLight Group: %d", len(lightGroups)))
+	// for i, nodes := range lightGroups {
+	// 	log.WriteLog(fmt.Sprintf("Group %d: %d", i, len(nodes)))
+	// 	for _, node := range nodes {
+	// 		inter, trueinter := node.Interval()
+	// 		log.WriteLog(fmt.Sprintf("Node %d: Interval: %d, TrueInterval: %d.", node.ID(), inter, trueinter))
+	// 	}
+	// }
+
+	// 检查连通性
+	simpleConnect, simulationConnect := utils.IsStronglyConnected(simpleG), utils.IsStronglyConnected(simulationG)
+	log.WriteLog(fmt.Sprintf("SimpleGraph Connected: %v, SimulationGraph Connected: %v", simpleConnect, simulationConnect))
 
 	// keyNodes - 输出的车辆路径中仅记录这些节点
 	keyNodes := make(map[int64]graph.Node)
 	// linkNodes - 用一个节点在simpleG中表示一个link（计算路径）
 	linkNodes := make(map[int64]graph.Node)
 	for i, node := range simpleNodes {
-		if i <= 416 {
+		if i <= rawNodeIds {
 			keyNodes[i] = node
 		} else {
 			linkNodes[i] = node
@@ -95,76 +109,11 @@ func main() {
 	// 允许作为起终点的节点
 	var allowedOrigin, allowedDestination []graph.Node
 	for i, node := range simpleNodes {
-		if i <= 416 {
+		if i <= rawNodeIds {
 			allowedOrigin = append(allowedOrigin, node)
 			allowedDestination = append(allowedDestination, node)
 		}
 	}
-
-	// 筛选入度较大的节点, 仅在这些节点处设置红绿灯
-	filteredKeyNodes := make(map[int64]graph.Node)
-	for id, node := range keyNodes {
-		if simulationG.To(node.ID()).Len() >= inDegreeThreshold {
-			filteredKeyNodes[id] = node
-		}
-	}
-	log.WriteLog(fmt.Sprintf("Number of TrafficLight Group: %d", len(filteredKeyNodes)))
-
-	// 直接上游节点
-	upstreamNodes := make(map[int64][]graph.Node)
-	for _, node := range filteredKeyNodes {
-		toNodes := simulationG.To(node.ID())
-		for toNodes.Next() {
-			upstreamNode := toNodes.Node()
-			upstreamNodes[node.ID()] = append(upstreamNodes[node.ID()], upstreamNode)
-		}
-	}
-	for id, nodes := range upstreamNodes {
-		log.WriteLog(fmt.Sprintf("TrafficLight Group %d - %d", id, len(nodes)))
-	}
-
-	// 初始化红绿灯
-	var trafficLightNodes map[int64]*element.TrafficLightCell = make(map[int64]*element.TrafficLightCell)
-	for _, nodes := range upstreamNodes {
-		for i, node := range nodes {
-			assertNode, ok := node.(*element.CommonCell)
-			if !ok {
-				panic("Node is not a common cell")
-			}
-
-			interval := initTrafficLightPhaseInterval * len(nodes)
-			truePhaseinteval := [2]int{initTrafficLightPhaseInterval * i, initTrafficLightPhaseInterval * (i + 1)}
-			lightNode := assertNode.ChangeToTrafficLightCell(interval, truePhaseinteval)
-			trafficLightNodes[node.ID()] = lightNode
-		}
-	}
-
-	// 替换原图中的节点
-	for id, lightNode := range trafficLightNodes {
-		// 保存原节点的边信息
-		fromNodes := simulationG.From(id)
-		toNodes := simulationG.To(id)
-
-		// 移除原节点
-		simulationG.RemoveNode(id)
-
-		// 添加新节点
-		simulationG.AddNode(lightNode)
-
-		// 重新添加边
-		for fromNodes.Next() {
-			fromNode := fromNodes.Node()
-			simulationG.SetEdge(simulationG.NewEdge(fromNode, lightNode))
-		}
-		for toNodes.Next() {
-			toNode := toNodes.Node()
-			simulationG.SetEdge(simulationG.NewEdge(lightNode, toNode))
-		}
-	}
-
-	// 检查连通性
-	simpleConnect, simulationConnect := utils.IsStronglyConnected(simpleG), utils.IsStronglyConnected(simulationG)
-	log.WriteLog(fmt.Sprintf("SimpleGraph Connected: %v, SimulationGraph Connected: %v", simpleConnect, simulationConnect))
 
 	// 初始化系统
 	var demand []float64
@@ -183,8 +132,10 @@ func main() {
 
 		// 红绿灯周期改变
 		if currentDay == trafficLightChangeDay && timeOfDay == 0 {
-			for _, node := range trafficLightNodes {
-				node.ChangeInterval(traffcLightMul)
+			for _, nodes := range lightGroups {
+				for _, node := range nodes {
+					node.ChangeInterval(traffcLightMul)
+				}
 			}
 			log.WriteLog(fmt.Sprintf("TrafficLight Interval Changed: Multiplier - %.2f", traffcLightMul))
 		}
@@ -194,8 +145,10 @@ func main() {
 		simulator.GenerateScheduleVehicle(timeStep, generateNum, simpleG, simulationG, allowedOrigin, allowedDestination)
 
 		// 红绿灯循环
-		for _, node := range trafficLightNodes {
-			node.Cycle()
+		for _, nodes := range lightGroups {
+			for _, node := range nodes {
+				node.Cycle()
+			}
 		}
 
 		// 处理车辆
