@@ -11,13 +11,13 @@ import (
 	"gonum.org/v1/gonum/graph/simple"
 )
 
-func VehicleProcess(numWorkers, simTime int, simpleGraph, simulationGraph *simple.DirectedGraph, allowedDestination []graph.Node) {
-	checkCompletedVehicle(simTime, simpleGraph, simulationGraph, allowedDestination)
+func VehicleProcess(numWorkers, simTime int, simpleGraph, simulationGraph *simple.DirectedGraph, allowedODNodes [][2]graph.Node) {
+	checkCompletedVehicle(simTime, simpleGraph, simulationGraph, allowedODNodes)
 	updateVehicleActiveStatus(numWorkers)
 	updateVehiclePosition(numWorkers, simTime)
 }
 
-func checkCompletedVehicle(simTime int, simpleGraph, simulationGraph *simple.DirectedGraph, allowedDestination []graph.Node) {
+func checkCompletedVehicle(simTime int, simpleGraph, simulationGraph *simple.DirectedGraph, allowedODNodes [][2]graph.Node) {
 	if len(completedVehicles) == 0 {
 		return
 	}
@@ -31,24 +31,15 @@ func checkCompletedVehicle(simTime int, simpleGraph, simulationGraph *simple.Dir
 			id, velocity, acceleration, slowingProb := vehicle.Index(), vehicle.Velocity(), vehicle.Acceleration(), vehicle.SlowingProb()
 			newOrigin := vehicle.Destination()
 
-			var newDestination graph.Node
-			// for {
-			// 	lim := TripDistanceLim()
-			// 	newDestinationInRange := utils.AccessibleNodesWithinLim(simpleGraph, newOrigin, lim)
-			// 	if len(newDestinationInRange) == 0 {
-			// 		continue
-			// 	}
-			// 	newDestination = newDestinationInRange[rand.Intn(len(newDestinationInRange)-1)]
-			// 	if newOrigin.ID() != newDestination.ID() {
-			// 		break
-			// 	}
-			// }
-			for {
-				newDestination = allowedDestination[rand.Intn(len(allowedDestination)-1)]
-				if newOrigin.ID() != newDestination.ID() {
-					break
+			allowedDestinations := make([]graph.Node, 0)
+			for _, od := range allowedODNodes {
+				if od[0] == newOrigin {
+					allowedDestinations = append(allowedDestinations, od[1])
 				}
 			}
+
+			newDestination := allowedDestinations[rand.Intn(len(allowedDestinations))]
+
 			newVehicle := element.NewVehicle(id, velocity, acceleration, 1.0, slowingProb, true)
 			newVehicle.SetOD(simulationGraph, newOrigin, newDestination)
 

@@ -17,9 +17,6 @@ func CreateAnaheimSimpleGraph() (*simple.DirectedGraph, map[int64]graph.Node) {
 	edgeFilePath := "./resources/Anaheim_Edges.csv"
 	nodeFilePath := "./resources/Anaheim_Nodes.csv"
 
-	// edgeFilePath := "./resources/Barcelona_Edges.csv"
-	// nodeFilePath := "./resources/Barcelona_Nodes.csv"
-
 	nodeFile, err := os.Open(nodeFilePath)
 	if err != nil {
 		panic(fmt.Sprintf("failed to open node file: %v", err))
@@ -102,7 +99,6 @@ func CreateAnaheimSimulationGraph(simpleG *simple.DirectedGraph, nodes map[int64
 
 	// Read edges from the edge file
 	edgeFilePath := "./resources/Anaheim_Edges.csv"
-	// edgeFilePath := "./resources/Barcelona_Edges.csv"
 	edgeFile, err := os.Open(edgeFilePath)
 	if err != nil {
 		panic(fmt.Sprintf("failed to open edge file: %v", err))

@@ -7,7 +7,7 @@ import (
 	"gonum.org/v1/gonum/graph/simple"
 )
 
-var cellIndex int64 = 1000000
+var cellIndex int64 = 10000000000
 
 func getNextCellID() int64 {
 	return atomic.AddInt64(&cellIndex, 1)

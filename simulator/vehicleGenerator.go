@@ -27,7 +27,7 @@ func randomSlowingProbability() float64 {
 	return rand.Float64() / 5.0
 }
 
-func InitFixedVehicle(n int, simpleGraph, simulationGraph *simple.DirectedGraph, allowedOrigin, allowedDestination []graph.Node) {
+func InitFixedVehicle(n int, simpleGraph, simulationGraph *simple.DirectedGraph, allowedODNodes [][2]graph.Node) {
 	var wg sync.WaitGroup
 	wg.Add(n)
 	for i := 0; i < n; i++ {
@@ -37,26 +37,10 @@ func InitFixedVehicle(n int, simpleGraph, simulationGraph *simple.DirectedGraph,
 			vehicle := element.NewVehicle(getNextVehicleID(), randomVelocity(), randomAcceleration(), 1.0, randomSlowingProbability(), true) // ClosedVehicle = true
 
 			// OD生成
-			oCell := allowedOrigin[rand.Intn(len(allowedOrigin)-1)]
+			od := allowedODNodes[rand.Intn(len(allowedODNodes)-1)]
+			oCell := od[0]
+			dCell := od[1]
 
-			var dCell graph.Node
-			// for {
-			// 	lim := TripDistanceLim()
-			// 	dCellsInRange := utils.AccessibleNodesWithinLim(simpleGraph, oCell, lim)
-			// 	if len(dCellsInRange) == 0 {
-			// 		continue
-			// 	}
-			// 	dCell = dCellsInRange[rand.Intn(len(dCellsInRange)-1)]
-			// 	if oCell.ID() != dCell.ID() {
-			// 		break
-			// 	}
-			// }
-			for {
-				dCell = allowedDestination[rand.Intn(len(allowedDestination)-1)]
-				if oCell.ID() != dCell.ID() {
-					break
-				}
-			}
 			vehicle.SetOD(simulationGraph, oCell, dCell)
 
 			// 路径
@@ -81,7 +65,7 @@ func InitFixedVehicle(n int, simpleGraph, simulationGraph *simple.DirectedGraph,
 	wg.Wait()
 }
 
-func GenerateScheduleVehicle(simTime, n int, simpleGraph, simulationGraph *simple.DirectedGraph, allowedOrigin, allowedDestination []graph.Node) {
+func GenerateScheduleVehicle(simTime, n int, simpleGraph, simulationGraph *simple.DirectedGraph, allowedODNodes [][2]graph.Node) {
 	if numVehiclesWaiting > maxNumVehiclesWaiting {
 		return
 	}
@@ -94,30 +78,9 @@ func GenerateScheduleVehicle(simTime, n int, simpleGraph, simulationGraph *simpl
 			vehicle := element.NewVehicle(getNextVehicleID(), randomVelocity(), randomAcceleration(), 1.0, randomSlowingProbability(), false)
 
 			// OD生成
-			oCell := allowedOrigin[rand.Intn(len(allowedOrigin)-1)]
-
-			var dCell graph.Node
-			// for {
-			// 	lim := TripDistanceLim()
-			// 	dCellsInRange := utils.AccessibleNodesWithinLim(simpleGraph, oCell, lim)
-			// 	if len(dCellsInRange) == 0 {
-			// 		continue
-			// 	}
-			// 	if len(dCellsInRange) == 1 {
-			// 		dCell = dCellsInRange[0]
-			// 	} else {
-			// 		dCell = dCellsInRange[rand.Intn(len(dCellsInRange)-1)]
-			// 	}
-			// 	if oCell.ID() != dCell.ID() {
-			// 		break
-			// 	}
-			// }
-			for {
-				dCell = allowedDestination[rand.Intn(len(allowedDestination)-1)]
-				if oCell.ID() != dCell.ID() {
-					break
-				}
-			}
+			od := allowedODNodes[rand.Intn(len(allowedODNodes)-1)]
+			oCell := od[0]
+			dCell := od[1]
 			vehicle.SetOD(simulationGraph, oCell, dCell)
 
 			// 路径

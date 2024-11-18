@@ -6,7 +6,6 @@ import (
 	"graphCA/log"
 	"graphCA/recorder"
 	"graphCA/simulator"
-	"graphCA/utils"
 	"runtime"
 	"sync"
 	"time"
@@ -30,7 +29,7 @@ const (
 	// 时间步需求扰动范围[1-RandomDisRange, 1+RandomDisRange]
 	RandomDisRange float64 = 0.25
 	// 固定车辆数
-	numClosedVehicle int = 50
+	numClosedVehicle int = 500
 
 	simDay                        int     = 2
 	initTrafficLightPhaseInterval int     = 20
@@ -71,17 +70,10 @@ func main() {
 	numNodes := len(simulationNodes)
 	log.WriteLog(fmt.Sprintf("Number of Nodes: %d", numNodes))
 	log.WriteLog(fmt.Sprintf("Number of TrafficLight Group: %d", len(lightGroups)))
-	// for i, nodes := range lightGroups {
-	// 	log.WriteLog(fmt.Sprintf("Group %d: %d", i, len(nodes)))
-	// 	for _, node := range nodes {
-	// 		inter, trueinter := node.Interval()
-	// 		log.WriteLog(fmt.Sprintf("Node %d: Interval: %d, TrueInterval: %d.", node.ID(), inter, trueinter))
-	// 	}
-	// }
 
 	// 检查连通性
-	simpleConnect, simulationConnect := utils.IsStronglyConnected(simpleG), utils.IsStronglyConnected(simulationG)
-	log.WriteLog(fmt.Sprintf("SimpleGraph Connected: %v, SimulationGraph Connected: %v", simpleConnect, simulationConnect))
+	// simpleConnect, simulationConnect := utils.IsStronglyConnected(simpleG), utils.IsStronglyConnected(simulationG)
+	// log.WriteLog(fmt.Sprintf("SimpleGraph Connected: %v, SimulationGraph Connected: %v", simpleConnect, simulationConnect))
 
 	// keyNodes - 输出的车辆路径中仅记录这些节点
 	keyNodes := make(map[int64]graph.Node)
@@ -107,17 +99,20 @@ func main() {
 	}
 
 	// 允许作为起终点的节点
-	var allowedOrigin, allowedDestination []graph.Node
-	for i, node := range simpleNodes {
-		if i <= rawNodeIds {
-			allowedOrigin = append(allowedOrigin, node)
-			allowedDestination = append(allowedDestination, node)
+	var allowedODNodes [][2]graph.Node = make([][2]graph.Node, 0)
+	for _, node1 := range simpleNodes {
+		for _, node2 := range simpleNodes {
+			if node1.ID() != node2.ID() {
+				allowedODNodes = append(allowedODNodes, [2]graph.Node{node1, node2})
+			}
 		}
 	}
 
+	log.WriteLog(fmt.Sprintf("Allowed OD Nodes: %d", len(allowedODNodes)))
+
 	// 初始化系统
 	var demand []float64
-	simulator.InitFixedVehicle(numClosedVehicle, simpleG, simulationG, allowedOrigin, allowedDestination)
+	simulator.InitFixedVehicle(numClosedVehicle, simpleG, simulationG, allowedODNodes)
 	// 仿真主进程
 	log.WriteLog("----------------------------------Simulation Start----------------------------------")
 	for timeStep := 0; timeStep < simDay*oneDayTimeSteps; timeStep++ {
@@ -142,7 +137,7 @@ func main() {
 
 		// 生成车辆
 		generateNum := simulator.GetGenerateVehicleCount(timeOfDay, demand, RandomDisRange)
-		simulator.GenerateScheduleVehicle(timeStep, generateNum, simpleG, simulationG, allowedOrigin, allowedDestination)
+		simulator.GenerateScheduleVehicle(timeStep, generateNum, simpleG, simulationG, allowedODNodes)
 
 		// 红绿灯循环
 		for _, nodes := range lightGroups {
@@ -152,7 +147,7 @@ func main() {
 		}
 
 		// 处理车辆
-		simulator.VehicleProcess(numWorkers, timeStep, simpleG, simulationG, allowedDestination)
+		simulator.VehicleProcess(numWorkers, timeStep, simpleG, simulationG, allowedODNodes)
 
 		// 记录系统状态及链路状态至缓存
 		recorder.RecordLinkData(timeStep, links)
