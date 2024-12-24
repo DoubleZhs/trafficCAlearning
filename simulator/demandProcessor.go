@@ -55,7 +55,7 @@ func GetGenerateVehicleCount(timeOfDay int, dayDemandList []float64, randomDis f
 }
 
 func readDemandCSV() []float64 {
-	var filename string = "./resources/DemandTimeDistribution1.csv"
+	var filename string = "./resources/DemandTimeDistribution_Smoothed.csv"
 	file, err := os.Open(filename)
 	if err != nil {
 		log.Fatalf("Failed to open file: %s", err)

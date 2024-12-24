@@ -27,7 +27,7 @@ func randomSlowingProbability() float64 {
 	return rand.Float64() / 5.0
 }
 
-func InitFixedVehicle(n int, simpleGraph, simulationGraph *simple.DirectedGraph, allowedODNodes [][2]graph.Node) {
+func InitFixedVehicle(n int, simpleGraph, simulationGraph *simple.DirectedGraph, linksMap map[[2]int64]*element.Link, allowedODNodes [][2]graph.Node) {
 	var wg sync.WaitGroup
 	wg.Add(n)
 	for i := 0; i < n; i++ {
@@ -44,14 +44,21 @@ func InitFixedVehicle(n int, simpleGraph, simulationGraph *simple.DirectedGraph,
 			vehicle.SetOD(simulationGraph, oCell, dCell)
 
 			// 路径
-			// path, _, err := utils.ShortestPath(simpleGraph, oCell, dCell)
-			// path, _, err := utils.RandomPath(simpleGraph, oCell, dCell)
-			paths, err := utils.KShortestPaths(simpleGraph, oCell, dCell, kPathsNum)
+			path, _, err := utils.ShortestPath(simpleGraph, oCell, dCell)
 			if err != nil {
 				panic(err)
 			}
-			randomDice := rand.Intn(len(paths))
-			vehicle.SetPath(paths[randomDice])
+			vehicle.SetPath(path, linksMap)
+
+			// paths, err := utils.KShortestPaths(simpleGraph, oCell, dCell, 3, linksMap)
+			// if err != nil {
+			// 	panic(err)
+			// }
+			// path := utils.LogitChoose(paths, 0.5, linksMap)
+			// _, err = vehicle.SetPath(path, linksMap)
+			// if err != nil {
+			// 	panic(err)
+			// }
 
 			// 进入缓冲区
 			vehicle.BufferIn(0)
@@ -65,7 +72,7 @@ func InitFixedVehicle(n int, simpleGraph, simulationGraph *simple.DirectedGraph,
 	wg.Wait()
 }
 
-func GenerateScheduleVehicle(simTime, n int, simpleGraph, simulationGraph *simple.DirectedGraph, allowedODNodes [][2]graph.Node) {
+func GenerateScheduleVehicle(simTime, n int, simpleGraph, simulationGraph *simple.DirectedGraph, linksMap map[[2]int64]*element.Link, allowedODNodes [][2]graph.Node) {
 	if numVehiclesWaiting > maxNumVehiclesWaiting {
 		return
 	}
@@ -84,14 +91,21 @@ func GenerateScheduleVehicle(simTime, n int, simpleGraph, simulationGraph *simpl
 			vehicle.SetOD(simulationGraph, oCell, dCell)
 
 			// 路径
-			// path, _, err := utils.ShortestPath(simpleGraph, oCell, dCell)
-			// path, _, err := utils.RandomPath(simpleGraph, oCell, dCell)
-			paths, err := utils.KShortestPaths(simpleGraph, oCell, dCell, kPathsNum)
+			path, _, err := utils.ShortestPath(simpleGraph, oCell, dCell)
 			if err != nil {
 				panic(err)
 			}
-			randomDice := rand.Intn(len(paths))
-			vehicle.SetPath(paths[randomDice])
+			vehicle.SetPath(path, linksMap)
+
+			// paths, err := utils.KShortestPaths(simpleGraph, oCell, dCell, 5, linksMap)
+			// if err != nil {
+			// 	panic(err)
+			// }
+			// path := utils.LogitChoose(paths, 0.1, linksMap)
+			// _, err = vehicle.SetPath(path, linksMap)
+			// if err != nil {
+			// 	panic(err)
+			// }
 
 			vehicle.BufferIn(simTime)
 

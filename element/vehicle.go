@@ -2,6 +2,7 @@ package element
 
 import (
 	"errors"
+	"fmt"
 	"math/rand/v2"
 
 	"gonum.org/v1/gonum/graph"
@@ -24,6 +25,7 @@ type Vehicle struct {
 	inTime, outTime          int
 	trace                    map[int64]int
 	activiate                bool
+	vzerocount               int
 }
 
 func NewVehicle(index int64, velocity, acceleration int, occupy, slowingProb float64, flag bool) *Vehicle {
@@ -36,6 +38,7 @@ func NewVehicle(index int64, velocity, acceleration int, occupy, slowingProb flo
 		tag:          rand.Float64(),
 		flag:         flag,
 		trace:        make(map[int64]int),
+		vzerocount:   0,
 	}
 }
 
@@ -98,7 +101,11 @@ func (v *Vehicle) SetOD(g *simple.DirectedGraph, origin, destination graph.Node)
 	return true, nil
 }
 
-func (v *Vehicle) SetPath(path []graph.Node) (bool, error) {
+func (v *Vehicle) SetPath(path []graph.Node, links map[[2]int64]*Link) (bool, error) {
+	if len(path) == 0 {
+		errMess := fmt.Sprintf("path from %d to %d is empty", v.origin.ID(), v.destination.ID())
+		return false, errors.New(errMess)
+	}
 	if v.state != 1 {
 		return false, errors.New("set origin and destination first")
 	}
@@ -110,17 +117,19 @@ func (v *Vehicle) SetPath(path []graph.Node) (bool, error) {
 	}
 	v.simplePath = path
 
-	for _, node := range path {
-		switch assertNode := node.(type) {
-		case Cell:
-			v.residualPath = append(v.residualPath, assertNode)
-		case *Link:
-			v.residualPath = append(v.residualPath, assertNode.Flat()...)
-		default:
-			panic("node is not a cell or link")
+	// Fill the path with links
+	v.residualPath = make([]graph.Node, 0)
+	for i := 0; i < len(path)-1; i++ {
+		origin := path[i]
+		destination := path[i+1]
+		v.residualPath = append(v.residualPath, origin)
+		link, found := links[[2]int64{origin.ID(), destination.ID()}]
+		if !found {
+			panic("link not found")
 		}
-
+		v.residualPath = append(v.residualPath, link.Flat()...)
 	}
+
 	v.pathlength = len(v.residualPath)
 	v.state = 2
 	return true, nil
@@ -189,6 +198,8 @@ func (v *Vehicle) SystemOut(time int) {
 	}
 	cell.Unload(v)
 	v.outTime = time
+	v.pos = nil
+	v.residualPath = nil
 	v.state = 5
 }
 
@@ -199,13 +210,14 @@ func (v *Vehicle) Move(time int) bool {
 		v.randomSlowing()
 
 		if v.velocity == 0 {
+			v.vzerocount++
 			return false
 		}
 
 		targetIndex := v.velocity - 1
 		target := v.residualPath[targetIndex]
-		targetCell, ok := target.(Cell)
 
+		targetCell, ok := target.(Cell)
 		if !ok {
 			panic("target is not a cell")
 		}
@@ -214,10 +226,14 @@ func (v *Vehicle) Move(time int) bool {
 			continue
 		}
 
-		v.pos.(Cell).Unload(v)
-		targetCell.Load(v)
-		v.pos = targetCell
+		if target.ID() == v.residualPath[len(v.residualPath)-1].ID() {
+			v.SystemOut(time)
+			v.trace[v.destination.ID()] = time
+			v.vzerocount = 0
+			return true
+		}
 
+		// 途径检查点记录轨迹并重新规划最短路
 		pathway := v.residualPath[:v.velocity]
 		for _, checkNode := range v.simplePath {
 			for _, node := range pathway {
@@ -227,12 +243,11 @@ func (v *Vehicle) Move(time int) bool {
 			}
 		}
 
+		v.pos.(Cell).Unload(v)
+		targetCell.Load(v)
+		v.pos = targetCell
 		v.residualPath = v.residualPath[v.velocity:]
-
-		if len(v.residualPath) == 0 {
-			v.SystemOut(time)
-			return true
-		}
+		v.vzerocount = 0
 
 		return false
 	}

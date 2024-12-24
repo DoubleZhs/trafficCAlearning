@@ -11,13 +11,13 @@ import (
 	"gonum.org/v1/gonum/graph/simple"
 )
 
-func VehicleProcess(numWorkers, simTime int, simpleGraph, simulationGraph *simple.DirectedGraph, allowedODNodes [][2]graph.Node) {
-	checkCompletedVehicle(simTime, simpleGraph, simulationGraph, allowedODNodes)
+func VehicleProcess(numWorkers, simTime int, simpleGraph, simulationGraph *simple.DirectedGraph, linksMap map[[2]int64]*element.Link, allowedODNodes [][2]graph.Node) {
+	checkCompletedVehicle(simTime, simpleGraph, simulationGraph, linksMap, allowedODNodes)
 	updateVehicleActiveStatus(numWorkers)
 	updateVehiclePosition(numWorkers, simTime)
 }
 
-func checkCompletedVehicle(simTime int, simpleGraph, simulationGraph *simple.DirectedGraph, allowedODNodes [][2]graph.Node) {
+func checkCompletedVehicle(simTime int, simpleGraph, simulationGraph *simple.DirectedGraph, linksMap map[[2]int64]*element.Link, allowedODNodes [][2]graph.Node) {
 	if len(completedVehicles) == 0 {
 		return
 	}
@@ -43,14 +43,18 @@ func checkCompletedVehicle(simTime int, simpleGraph, simulationGraph *simple.Dir
 			newVehicle := element.NewVehicle(id, velocity, acceleration, 1.0, slowingProb, true)
 			newVehicle.SetOD(simulationGraph, newOrigin, newDestination)
 
-			// path, _, err := utils.ShortestPath(simpleGraph, newOrigin, newDestination)
-			// path, _, err := utils.RandomPath(simpleGraph, newOrigin, newDestination)
-			paths, err := utils.KShortestPaths(simpleGraph, newOrigin, newDestination, kPathsNum)
+			path, _, err := utils.ShortestPath(simpleGraph, newOrigin, newDestination)
 			if err != nil {
 				panic(err)
 			}
-			randomDice := rand.Intn(len(paths))
-			newVehicle.SetPath(paths[randomDice])
+			newVehicle.SetPath(path, linksMap)
+
+			// paths, err := utils.KShortestPaths(simpleGraph, newOrigin, newDestination, 3, linksMap)
+			// if err != nil {
+			// 	panic(err)
+			// }
+			// path := utils.LogitChoose(paths, 0.5, linksMap)
+			// newVehicle.SetPath(path, linksMap)
 
 			newVehicle.BufferIn(simTime)
 			waitingVehiclesMutex.Lock()

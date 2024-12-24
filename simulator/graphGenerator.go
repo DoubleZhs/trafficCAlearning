@@ -11,10 +11,11 @@ import (
 	"gonum.org/v1/gonum/graph/simple"
 )
 
-func CreateAnaheimSimpleGraph() (*simple.DirectedGraph, map[int64]graph.Node) {
+func CreateAnaheimSimpleGraph() (*simple.DirectedGraph, map[int64]graph.Node, map[int64]graph.Edge) {
 	simpleGraph := simple.NewDirectedGraph()
+	simpleNodes := make(map[int64]graph.Node)
+	simpleEdges := make(map[int64]graph.Edge)
 
-	edgeFilePath := "./resources/Anaheim_Edges.csv"
 	nodeFilePath := "./resources/Anaheim_Nodes.csv"
 
 	nodeFile, err := os.Open(nodeFilePath)
@@ -29,28 +30,21 @@ func CreateAnaheimSimpleGraph() (*simple.DirectedGraph, map[int64]graph.Node) {
 		panic(fmt.Sprintf("failed to read node file: %v", err))
 	}
 
-	simpleNodes := make(map[int64]graph.Node)
-
 	for _, record := range nodeRecords[1:] {
-		nodeID, _ := strconv.ParseInt(record[0], 10, 64)
-		length, _ := strconv.Atoi(record[1])
-		speed, _ := strconv.Atoi(record[2])
+		id, _ := strconv.ParseInt(record[0], 10, 64)
+		speed, _ := strconv.Atoi(record[1])
 
 		capacity := 2.0
 		if speed > 5 {
 			capacity = 4.0
 		}
 
-		if length == -1 {
-			commonCell := element.NewCommonCell(nodeID, speed, capacity)
-			simpleNodes[nodeID] = commonCell
-			simpleGraph.AddNode(commonCell)
-		} else {
-			link := element.NewLink(nodeID, length, speed, capacity)
-			simpleNodes[nodeID] = link
-			simpleGraph.AddNode(link)
-		}
+		commonCell := element.NewCommonCell(id, speed, capacity)
+		simpleNodes[id] = commonCell
+		simpleGraph.AddNode(commonCell)
 	}
+
+	edgeFilePath := "./resources/Anaheim_Edges.csv"
 
 	edgeFile, err := os.Open(edgeFilePath)
 	if err != nil {
@@ -65,81 +59,55 @@ func CreateAnaheimSimpleGraph() (*simple.DirectedGraph, map[int64]graph.Node) {
 	}
 
 	for _, record := range edgeRecords[1:] {
-		initNodeID, _ := strconv.ParseInt(record[0], 10, 64)
-		termNodeID, _ := strconv.ParseInt(record[1], 10, 64)
+		fromId, _ := strconv.ParseInt(record[0], 10, 64)
+		toId, _ := strconv.ParseInt(record[1], 10, 64)
+		length, _ := strconv.Atoi(record[2])
+		speed, _ := strconv.Atoi(record[3])
+		designCapacity, _ := strconv.ParseFloat(record[4], 64)
 
-		initNode := simpleNodes[initNodeID]
-		termNode := simpleNodes[termNodeID]
+		capacity := 2.0
+		if speed > 5 {
+			capacity = 4.0
+		}
 
-		simpleGraph.SetEdge(simple.Edge{F: initNode, T: termNode})
+		link := element.NewLink(fromId*1000+toId, simpleNodes[fromId], simpleNodes[toId], length, speed, capacity, designCapacity)
+		simpleEdges[link.ID()] = link
+		simpleGraph.SetEdge(link)
 	}
 
-	return simpleGraph, simpleNodes
+	return simpleGraph, simpleNodes, simpleEdges
 }
 
-func CreateAnaheimSimulationGraph(simpleG *simple.DirectedGraph, nodes map[int64]graph.Node, inDegreeThreshold, initPhaseInterval int) (*simple.DirectedGraph, map[int64]graph.Node, map[int64][]*element.TrafficLightCell) {
+func CreateAnaheimSimulationGraph(simpleG *simple.DirectedGraph, simpleNodes map[int64]graph.Node, simpleEdges map[int64]graph.Edge, inDegreeThreshold, initPhaseInterval int) (*simple.DirectedGraph, map[int64]graph.Node, map[int64][]*element.TrafficLightCell) {
 	simulationGraph := simple.NewDirectedGraph()
 	simulationNodes := make(map[int64]graph.Node)
 
-	var rawNodesNum int64 = 416
-
-	// Add all nodes to the simulation graph
-	for id, node := range nodes {
+	for id, node := range simpleNodes {
 		switch n := node.(type) {
 		case *element.CommonCell:
 			simulationGraph.AddNode(n)
 			simulationNodes[id] = n
-		case *element.Link:
-			n.AddToGraph(simulationGraph)
-			for _, cell := range n.Flat() {
-				simulationNodes[cell.ID()] = cell
-			}
+		default:
+			panic("Node is not a common cell")
 		}
 	}
 
-	// Read edges from the edge file
-	edgeFilePath := "./resources/Anaheim_Edges.csv"
-	edgeFile, err := os.Open(edgeFilePath)
-	if err != nil {
-		panic(fmt.Sprintf("failed to open edge file: %v", err))
-	}
-	defer edgeFile.Close()
-
-	edgeReader := csv.NewReader(edgeFile)
-	edgeRecords, err := edgeReader.ReadAll()
-	if err != nil {
-		panic(fmt.Sprintf("failed to read edge file: %v", err))
-	}
-
-	for _, record := range edgeRecords[1:] {
-		initNodeID, _ := strconv.ParseInt(record[0], 10, 64)
-		termNodeID, _ := strconv.ParseInt(record[1], 10, 64)
-
-		initNode := nodes[initNodeID]
-		termNode := nodes[termNodeID]
-
-		switch initNode := initNode.(type) {
-		case *element.CommonCell:
-			switch termNode := termNode.(type) {
-			case *element.CommonCell:
-				simulationGraph.SetEdge(simple.Edge{F: initNode, T: termNode})
-			case *element.Link:
-				termNode.AddFromNode(simulationGraph, initNode)
-			}
+	for _, link := range simpleEdges {
+		switch n := link.(type) {
 		case *element.Link:
-			switch termNode := termNode.(type) {
-			case *element.CommonCell:
-				initNode.AddToNode(simulationGraph, termNode)
-			default:
-				panic("Invalid node type")
+			n.AddToSimGraph(simulationGraph)
+			for _, cell := range n.Flat() {
+				simulationNodes[cell.ID()] = cell
 			}
+		default:
+			panic("Node is not a link")
 		}
 	}
 
 	// 按入度识别需要循环的红绿灯
 	var lightGroups map[int64][]*element.TrafficLightCell = make(map[int64][]*element.TrafficLightCell)
 	for _, node := range simulationNodes {
-		if node.ID() <= rawNodesNum && simulationGraph.To(node.ID()).Len() >= inDegreeThreshold {
+		if _, exists := simpleNodes[node.ID()]; exists && simulationGraph.To(node.ID()).Len() >= inDegreeThreshold {
 			n := simulationGraph.To(node.ID())
 			lightNodes := make([]*element.TrafficLightCell, 0)
 			for n.Next() {
